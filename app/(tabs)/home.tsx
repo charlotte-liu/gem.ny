@@ -1,0 +1,452 @@
+// File: app/(tabs)/home.tsx
+import React, { useEffect, useState, useRef } from 'react';
+import { 
+  View, 
+  ScrollView, 
+  StyleSheet, 
+  Image, 
+  Linking,
+  TouchableOpacity, 
+  Animated,
+  StatusBar,
+  ActivityIndicator,
+  RefreshControl
+} from 'react-native';
+import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+// Import Typography components
+import { H1, H2, Body1, Body2, Caption, Button } from '../../components/Typography';
+// Import centralized constants
+import { COLORS } from '../../constants/Colors';
+import { FONTS } from '../../constants/Fonts';
+
+const CATEGORIES = [
+  { id: 'all', name: 'All' },
+  { id: 'luxury', name: 'Luxury' },
+  { id: 'streetwear', name: 'Streetwear' },
+  { id: 'sustainable', name: 'Sustainable' },
+  { id: 'emerging', name: 'Emerging' }
+];
+
+// Mock data for development/testing
+const MOCK_DATA = [
+  {
+    id: "1",
+    brand: "Jacquemus",
+    product_name: "Le Chiquito Mini Bag",
+    context: "Featured in Vogue's Spring collection",
+    link: "https://www.jacquemus.com",
+    image_url: "https://via.placeholder.com/400x500",
+    category: "luxury"
+  },
+  {
+    id: "2",
+    brand: "Maison Margiela",
+    product_name: "Tabi Boots",
+    context: "Spotted on Instagram influencer",
+    link: "https://www.maisonmargiela.com",
+    image_url: "https://via.placeholder.com/400x500",
+    category: "luxury"
+  },
+  {
+    id: "3",
+    brand: "Bottega Veneta",
+    product_name: "Cassette Bag",
+    context: "New arrival on SSENSE",
+    link: "https://www.bottegaveneta.com",
+    image_url: "https://via.placeholder.com/400x500",
+    category: "luxury"
+  }
+];
+
+type BrandItem = {
+  id: string;
+  brand: string;
+  product_name: string;
+  context: string;
+  link: string;
+  image_url: string;
+  category: string;
+};
+
+const BrandLabel = ({ text }: { text: string }) => (
+  <View style={styles.brandLabel}>
+    <Button style={styles.brandLabelText}>{text}</Button>
+  </View>
+);
+
+type AnimatedCardProps = {
+  item: BrandItem;
+  index: number;
+};
+
+const AnimatedCard = ({ item, index }: AnimatedCardProps) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      delay: index * 120,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+  
+  return (
+    <Animated.View style={[
+      styles.card, 
+      { 
+        opacity: fadeAnim, 
+        transform: [{ 
+          translateY: fadeAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [30, 0]
+          })
+        }] 
+      }
+    ]}>
+      <TouchableOpacity 
+        activeOpacity={0.95}
+        onPress={() => router.push(`/brand/${item.id}`)}
+      >
+        <View style={styles.cardInner}>
+          {item.image_url ? (
+            <View style={styles.imageContainer}>
+              <Image 
+                source={{ uri: item.image_url }} 
+                style={styles.image} 
+              />
+              <BrandLabel text={item.brand} />
+            </View>
+          ) : (
+            <View style={[styles.imageContainer, styles.noImageContainer]}>
+              <Caption style={styles.noImageText}>{item.brand.charAt(0)}</Caption>
+              <BrandLabel text={item.brand} />
+            </View>
+          )}
+          
+          <View style={styles.cardContent}>
+            <H2 style={styles.product} numberOfLines={2}>{item.product_name}</H2>
+            <Body1 style={styles.context} numberOfLines={2}>{item.context}</Body1>
+            
+            <View style={styles.actionContainer}>
+              <TouchableOpacity 
+                style={styles.link}
+                onPress={() => item.link ? Linking.openURL(item.link) : null}
+              >
+                <Button style={styles.linkText}>VIEW DETAILS</Button>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+export default function HomeScreen() {
+  const [brands, setBrands] = useState<BrandItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Filter brands based on selected category
+  const filteredBrands = selectedCategory === 'all' 
+    ? MOCK_DATA 
+    : MOCK_DATA.filter(item => item.category === selectedCategory);
+
+  const fetchBrands = async () => {
+    setLoading(true);
+    try {
+      // In a real app, this would be an API call
+      // For now, just use our mock data
+      setTimeout(() => {
+        setBrands(MOCK_DATA);
+        setLoading(false);
+      }, 800);
+    } catch (error) {
+      console.error('Failed to fetch brands', error);
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchBrands();
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    fetchBrands();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <View style={styles.logoContainer}>
+            <H2 style={styles.logoText}>TREND</H2>
+            <View style={styles.logoAccent}></View>
+          </View>
+          <H1 style={styles.title}>Trending Brands</H1>
+          <Body1 style={styles.subtitle}>Discover what's hot in fashion right now</Body1>
+        </View>
+      </View>
+
+      <View style={styles.categoriesWrapper}>
+        <ScrollView 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        >
+          {CATEGORIES.map((category) => (
+            <TouchableOpacity
+              key={category.id}
+              style={[
+                styles.categoryButton,
+                selectedCategory === category.id && styles.categoryButtonActive
+              ]}
+              onPress={() => setSelectedCategory(category.id)}
+            >
+              <Body2 
+                style={[
+                  styles.categoryButtonText,
+                  selectedCategory === category.id && styles.categoryButtonTextActive
+                ]}
+              >
+                {category.name}
+              </Body2>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+      
+      <ScrollView 
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.accent}
+          />
+        }
+      >
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.accent} />
+            <Body1 style={styles.loading}>Discovering trends...</Body1>
+          </View>
+        ) : filteredBrands.length > 0 ? (
+          filteredBrands.map((item, index) => (
+            <AnimatedCard key={item.id} item={item} index={index} />
+          ))
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Body1 style={styles.noData}>No trending brands found</Body1>
+            <TouchableOpacity 
+              style={styles.refreshButton}
+              onPress={fetchBrands}
+            >
+              <Button style={styles.refreshButtonText}>Refresh</Button>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <Caption style={styles.footerText}>Updated May 1, 2025</Caption>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background
+  },
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 12
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 16,
+    backgroundColor: COLORS.background,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border
+  },
+  headerContent: {
+    paddingTop: 12,
+  },
+  title: {
+    marginBottom: 8,
+    letterSpacing: 0.2,
+    color: COLORS.text.primary
+  },
+  subtitle: {
+    marginBottom: 8,
+    color: COLORS.text.secondary,
+  },
+  card: {
+    marginBottom: 24,
+    borderRadius: 16,
+    backgroundColor: COLORS.surfaceElevated,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+    overflow: 'hidden'
+  },
+  cardInner: {
+    overflow: 'hidden',
+    borderRadius: 16,
+  },
+  cardContent: {
+    padding: 20
+  },
+  brandLabel: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 6
+  },
+  brandLabelText: {
+    color: COLORS.text.white,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  context: {
+    marginTop: 4,
+    color: COLORS.text.secondary,
+  },
+  product: {
+    marginBottom: 8,
+    color: COLORS.text.primary,
+  },
+  actionContainer: {
+    flexDirection: 'row',
+    marginTop: 16,
+    justifyContent: 'flex-end'
+  },
+  link: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignSelf: 'flex-start'
+  },
+  linkText: {
+    color: COLORS.text.white,
+    textAlign: 'center',
+    letterSpacing: 0.5
+  },
+  logoContainer: {
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoText: {
+    letterSpacing: 3,
+    color: COLORS.primary,
+  },
+  logoAccent: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+    marginLeft: 4,
+  },
+  categoriesWrapper: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+  },
+  categoryButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    marginRight: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface
+  },
+  categoryButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  categoryButtonText: {
+    color: COLORS.text.secondary,
+  },
+  categoryButtonTextActive: {
+    color: COLORS.text.white,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 280,
+    backgroundColor: '#1565C0'
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  noImageContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#1565C0'
+  },
+  noImageText: {
+    fontSize: 60,
+    color: COLORS.text.light
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80
+  },
+  loading: {
+    textAlign: 'center',
+    marginTop: 16,
+    color: COLORS.text.secondary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80
+  },
+  noData: {
+    textAlign: 'center',
+    marginBottom: 16,
+    color: COLORS.text.secondary,
+  },
+  refreshButton: {
+    backgroundColor: COLORS.accent,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8
+  },
+  refreshButtonText: {
+    color: COLORS.text.white,
+  },
+  footer: {
+    marginTop: 30,
+    alignItems: 'center'
+  },
+  footerText: {
+    color: COLORS.text.light,
+  }
+});
